@@ -21,7 +21,7 @@ const voiceNumber = <string>process.env.VOICE_NUMBER;
 const voiceAppId = <string>process.env.VOICE_APP_ID;
 const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 3000;
 const app = express();
 
 interface Conference {

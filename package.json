@@ -1,0 +1,35 @@
+{
+  "name": "webrtc-sample-conference-node",
+  "version": "1.0.0",
+  "description": "Sample conferencing app using Node.js and Bandwidth WebRTC",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsc && node ./build/server.js",
+    "debug": "tsc && node --inspect-brk ./build/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "cd frontend && npm install && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bandwidth/webrtc-sample-conference-node.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bandwidth/webrtc-node-sdk": "1.0.0",
+    "@types/cors": "^2.8.6",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^4.17.1",
+    "@types/node": "12.0.4",
+    "axios": "^0.19.0",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^8.1.0",
+    "express": "^4.17.1",
+    "rpc-websockets": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/ws": "^6.0.3",
+    "typescript": "^3.7.3"
+  }
+}

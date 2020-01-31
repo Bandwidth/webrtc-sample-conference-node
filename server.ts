@@ -22,6 +22,7 @@ const voiceAppId = <string>process.env.VOICE_APP_ID;
 const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 
 const port = process.env.PORT || 3000;
+const websocketUrl = <string>process.env.WEBRTC_SERVER_URL;
 const app = express();
 
 interface Conference {
@@ -38,13 +39,16 @@ interface Participant {
 }
 
 const bandwidthRtc = new BandwidthRtc();
-
+let options: any = {};
+if (websocketUrl) {
+  options.websocketUrl = websocketUrl;
+}
 bandwidthRtc
   .connect({
     accountId: accountId,
     username: username,
     password: password
-  })
+  }, options)
   .then(() => {
     console.log("bandwidth rtc wesbsocket connected");
   });

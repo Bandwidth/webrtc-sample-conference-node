@@ -14,7 +14,7 @@
     "url": "git+https://github.com/Bandwidth/webrtc-sample-conference-node.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@bandwidth/webrtc-node-sdk": "1.0.0",
     "@types/cors": "^2.8.6",

@@ -24,6 +24,7 @@ const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 const port = process.env.PORT || 3000;
 const websocketServerUrl = <string>process.env.WEBRTC_SERVER_URL;
 const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL;
+const sipDestination = <string>process.env.SIP_DESTINATION;
 
 const app = express();
 
@@ -44,6 +45,9 @@ const bandwidthRtc = new BandwidthRtc();
 let options: any = {};
 if (websocketServerUrl) {
   options.websocketUrl = websocketServerUrl;
+}
+if (sipDestination) {
+  options.sipDestination = sipDestination;
 }
 bandwidthRtc
   .connect({

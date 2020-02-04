@@ -6,6 +6,8 @@ This sample will need be publicly accessible to the internet in order for Bandwi
 
 **Unless you are running on `localhost`, you will need to use HTTPS**. Most modern browsers require a secure context when accessing cameras and microphones.
 
+Note that this sample currently works best in Chrome.
+
 
 ### Create a Bandwidth Voice API application
 Follow the steps in [How to Create a Voice API Application](https://support.bandwidth.com/hc/en-us/articles/360035060934-How-to-Create-a-Voice-API-Application-V2-) to create your Voice API appliation.

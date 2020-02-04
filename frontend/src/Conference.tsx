@@ -102,10 +102,14 @@ const Conference: React.FC = props => {
       if (conferenceId) {
         const responseBody = await response.json();
         const participantId = responseBody.id;
+        let options: any = {};
+        if (responseBody.websocketUrl) {
+          options.websocketUrl = responseBody.websocketUrl;
+        }
         await bandwidthRtc.connect({
           conferenceId: conferenceId,
           participantId: participantId
-        });
+        }, options);
         const publishResponse = await bandwidthRtc.publish();
         setLocalStream(publishResponse);
       }

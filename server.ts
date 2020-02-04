@@ -22,7 +22,9 @@ const voiceAppId = <string>process.env.VOICE_APP_ID;
 const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 
 const port = process.env.PORT || 3000;
-const websocketUrl = <string>process.env.WEBRTC_SERVER_URL;
+const websocketServerUrl = <string>process.env.WEBRTC_SERVER_URL;
+const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL;
+
 const app = express();
 
 interface Conference {
@@ -40,8 +42,8 @@ interface Participant {
 
 const bandwidthRtc = new BandwidthRtc();
 let options: any = {};
-if (websocketUrl) {
-  options.websocketUrl = websocketUrl;
+if (websocketServerUrl) {
+  options.websocketUrl = websocketServerUrl;
 }
 bandwidthRtc
   .connect({
@@ -151,7 +153,7 @@ app.post("/conferences/:conferenceId/participants", async (req, res) => {
       if (phoneNumber) {
         callPhoneNumber(phoneNumber, conferenceId, participantId);
       }
-      res.status(200).send({ id: participantId });
+      res.status(200).send({ id: participantId, websocketUrl: websocketDeviceUrl });
     } else {
       res.status(404).send();
     }

@@ -26,6 +26,8 @@ const websocketServerUrl = <string>process.env.WEBRTC_SERVER_URL;
 const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL;
 const sipDestination = <string>process.env.SIP_DESTINATION;
 
+const eventFilter = <string>process.env.WEBRTC_EVENT_FILTER;
+
 const app = express();
 
 interface Conference {
@@ -48,6 +50,9 @@ if (websocketServerUrl) {
 }
 if (sipDestination) {
   options.sipDestination = sipDestination;
+}
+if (eventFilter) {
+  options.eventFilter = eventFilter;
 }
 bandwidthRtc
   .connect({

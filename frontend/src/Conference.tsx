@@ -124,7 +124,7 @@ const Conference: React.FC = props => {
       });
     });
 
-    bandwidthRtc.onUnsubscribe((event: SubscriptionEvent) => {
+    bandwidthRtc.onUnsubscribed((event: SubscriptionEvent) => {
       const {
         [event.streamId]: oldStream,
         ...remainingStreams

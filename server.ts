@@ -61,7 +61,7 @@ bandwidthRtc
     password: password
   }, options)
   .then(() => {
-    console.log("bandwidth rtc wesbsocket connected");
+    console.log("bandwidth rtc websocket connected");
   });
 
 app.use(cors());

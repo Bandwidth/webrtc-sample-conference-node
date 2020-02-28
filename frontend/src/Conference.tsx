@@ -4,9 +4,12 @@ import { makeStyles } from "@material-ui/core/styles";
 import DynamicGrid from "./DynamicGrid";
 import Welcome from "./Welcome";
 import BandwidthRtc, {
-  SubscriptionEvent,
+  PublishCommand,
+  SubscribeCommand,
   RtcStream,
-  MediaType
+  MediaType,
+  UnpublishedEvent,
+  UnsubscribedEvent
 } from "@bandwidth/webrtc-browser-sdk";
 import CallControl from "./CallControl";
 import { Avatar } from "@material-ui/core";
@@ -117,14 +120,28 @@ const Conference: React.FC = props => {
   }, [conferenceId]);
 
   useEffect(() => {
-    bandwidthRtc.onSubscribe((stream: RtcStream) => {
+    bandwidthRtc.onPublishCommand((event: PublishCommand) => {
+      console.log('onPublishCommand called: ' + JSON.stringify(event));
+    });
+    bandwidthRtc.onUnpublished((event: UnpublishedEvent) => {
+      console.log('onUnpublished called: ' + JSON.stringify(event));
+    });
+    bandwidthRtc.onSubscribeCommand((event: SubscribeCommand) => {
+      console.log('onSubscribeCommand called: ' + JSON.stringify(event));
+    });
+  });
+
+  useEffect(() => {
+    bandwidthRtc.onSubscribed((stream: RtcStream) => {
+      console.log('onSubscribed called: ' + JSON.stringify(stream));
       setRemoteStreams({
         ...remoteStreams,
         [stream.streamId]: stream
       });
     });
 
-    bandwidthRtc.onUnsubscribed((event: SubscriptionEvent) => {
+    bandwidthRtc.onUnsubscribed((event: UnsubscribedEvent) => {
+      console.log('onUnsubscribed called: ' + JSON.stringify(event))
       const {
         [event.streamId]: oldStream,
         ...remainingStreams

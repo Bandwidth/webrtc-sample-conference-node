@@ -38,6 +38,7 @@ interface Conference {
 
 interface Participant {
   id: string;
+  deviceToken: string;
   status: string;
   name?: string;
   streams: string[];
@@ -152,9 +153,12 @@ app.post("/conferences/:conferenceId/participants", async (req, res) => {
       const name = req.body.name;
       const phoneNumber = req.body.phoneNumber;
       console.log("name", name);
-      let participantId = await bandwidthRtc.createParticipant(conferenceId);
+      let participant: [string, string] = await bandwidthRtc.createParticipant(conferenceId);
+      let participantId = participant[0];
+      let deviceToken = participant[1];
       conference.participants.set(participantId, {
         id: participantId,
+        deviceToken: deviceToken,
         status: "pending",
         name: name,
         streams: []
@@ -162,7 +166,7 @@ app.post("/conferences/:conferenceId/participants", async (req, res) => {
       if (phoneNumber) {
         callPhoneNumber(phoneNumber, conferenceId, participantId);
       }
-      res.status(200).send({ id: participantId, websocketUrl: websocketDeviceUrl });
+      res.status(200).send({ id: participantId, deviceToken: deviceToken, websocketUrl: websocketDeviceUrl });
     } else {
       res.status(404).send();
     }
@@ -282,9 +286,12 @@ app.post("/callback/joinConference", async (req, res) => {
   );
   let conference = conferences.get(conferenceId);
   if (conference) {
-    let participantId = await bandwidthRtc.createParticipant(conferenceId);
+    let participant: [string, string] = await bandwidthRtc.createParticipant(conferenceId);
+    let participantId = participant[0];
+    let deviceToken = participant[1]
     conference.participants.set(participantId, {
       id: participantId,
+      deviceToken: deviceToken,
       status: "pending",
       name: req.body.from,
       streams: []

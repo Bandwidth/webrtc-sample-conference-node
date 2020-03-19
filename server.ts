@@ -144,6 +144,7 @@ app.get("/conferences/:conferenceId/participants", async (req, res) => {
   }
 });
 
+
 app.post("/conferences/:conferenceId/participants", async (req, res) => {
   try {
     const conferenceId = req.params.conferenceId;
@@ -156,13 +157,7 @@ app.post("/conferences/:conferenceId/participants", async (req, res) => {
       let participant: [string, string] = await bandwidthRtc.createParticipant(conferenceId);
       let participantId = participant[0];
       let deviceToken = participant[1];
-      conference.participants.set(participantId, {
-        id: participantId,
-        deviceToken: deviceToken,
-        status: "pending",
-        name: name,
-        streams: []
-      });
+      await addParticipant(conference, participantId, deviceToken);
       if (phoneNumber) {
         callPhoneNumber(phoneNumber, conferenceId, participantId);
       }
@@ -252,6 +247,20 @@ const callPhoneNumber = async (
   console.log(`ringing ${phoneNumber}...`);
 };
 
+const addParticipant = (
+  conference: Conference,
+  participantId: string,
+  deviceToken: string
+) => {
+  conference.participants.set(participantId, {
+    id: participantId,
+    deviceToken: deviceToken,
+    status: "pending",
+    name: name,
+    streams: []
+  });
+}
+
 app.post("/callback/:conferenceId/:participantId", async (req, res) => {
   const conferenceId = req.params.conferenceId;
   const participantId = req.params.participantId;
@@ -289,14 +298,7 @@ app.post("/callback/joinConference", async (req, res) => {
     let participant: [string, string] = await bandwidthRtc.createParticipant(conferenceId);
     let participantId = participant[0];
     let deviceToken = participant[1]
-    conference.participants.set(participantId, {
-      id: participantId,
-      deviceToken: deviceToken,
-      status: "pending",
-      name: req.body.from,
-      streams: []
-    });
-
+    await addParticipant(conference, participantId, deviceToken);
     const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
     <Response>
         <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>

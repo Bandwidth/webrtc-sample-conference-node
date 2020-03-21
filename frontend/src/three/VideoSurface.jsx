@@ -1,13 +1,16 @@
-import React from 'react';
-import { BoxGeometry, MeshFaceMaterial, VideoTexture, LinearFilter, RGBFormat, MeshBasicMaterial } from 'three';
+import React, { useEffect } from 'react';
+import { BoxGeometry, MeshFaceMaterial, VideoTexture, LinearFilter, RGBFormat, MeshBasicMaterial, Mesh } from 'three';
 
 
 
-const VideoSurface = (props) => {
+const VideoSurface = ({add, remove, ...rest}) => {
+
+
 
     const video = document.createElement('video');
     video.setAttribute("src", "/vid.mp4");
     video.autoplay = true;
+    video.loop = true;
   
     const texture = new VideoTexture(video);
     texture.minFilter = LinearFilter;
@@ -22,13 +25,21 @@ const VideoSurface = (props) => {
     materialArray.push(new MeshBasicMaterial({map: texture}));
     materialArray.push(new MeshBasicMaterial({color: 0xff51ba}));
     var faceMaterial = new MeshFaceMaterial(materialArray);
+
+    var newMesh = new Mesh(new BoxGeometry(1.6, 0.9, 0.2),faceMaterial);
+
+    useEffect(() => {
+        add(newMesh);
+        return () => {
+            remove(newMesh);
+        }
+    },[])
   
     return (
-        <mesh
-            {...props}
+        <primitive
+            {...rest}
             scale={[1,1,1]}
-            geometry={new BoxGeometry(1.6, 0.9, 0.2)}
-            material={faceMaterial}
+            object={newMesh}
             />
     )
 }

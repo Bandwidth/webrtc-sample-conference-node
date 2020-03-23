@@ -3,6 +3,9 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
 import { BufferGeometry, Vector3, Line, Matrix4, Raycaster, Group, BoxGeometry, MeshFaceMaterial, VideoTexture, LinearFilter, RGBFormat, MeshBasicMaterial, Mesh, MeshPhongMaterial } from 'three';
 import { MediaType } from "@bandwidth/webrtc-browser-sdk";
 
+
+//This guy started as a controller manager - but his scope balloned such that he's running a lot (probably too much) of the show.
+
 class ControllerManager {
     constructor() {
         this.controllerModelFactory = new XRControllerModelFactory();

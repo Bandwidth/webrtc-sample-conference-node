@@ -1,6 +1,7 @@
 
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory';
-import { BufferGeometry, Vector3, Line, Matrix4, Raycaster, Group } from 'three';
+import { BufferGeometry, Vector3, Line, Matrix4, Raycaster, Group, BoxGeometry, MeshFaceMaterial, VideoTexture, LinearFilter, RGBFormat, MeshBasicMaterial, Mesh, MeshPhongMaterial } from 'three';
+import { MediaType } from "@bandwidth/webrtc-browser-sdk";
 
 class ControllerManager {
     constructor() {
@@ -8,15 +9,73 @@ class ControllerManager {
         this.tempMatrix = new Matrix4();
         this.raycaster = null;
         this.interactable = new Group();
-    }
-
-    setForceUpdate(forceUpdate) {
-        this.forceUpdate = forceUpdate
+        this.streams = {};
     }
 
     addInteractable(obj) {
         this.interactable.add(obj);
         console.log(this.interactable);
+    }
+
+
+    removeInteractable(obj) {
+        this.interactable.remove(obj);
+    }
+
+    addVideoObject(id) {
+
+        let stream = this.streams[id];
+
+        let aspectRatio = stream.mediaStream.getVideoTracks()[0].getSettings().aspectRatio;
+        const video = document.createElement('video');
+        video.autoplay = true;
+        video.loop = true;
+        video.srcObject = stream.mediaStream
+      
+        const texture = new VideoTexture(video);
+        texture.minFilter = LinearFilter;
+        texture.magFilter = LinearFilter;
+        texture.format = RGBFormat;
+      
+        var materialArray = [];
+        materialArray.push(new MeshPhongMaterial({color: 0x00bef0}));
+        materialArray.push(new MeshPhongMaterial({color: 0x00bef0}));
+        materialArray.push(new MeshPhongMaterial({color: 0x00bef0}));
+        materialArray.push(new MeshPhongMaterial({color: 0x00bef0}));
+        materialArray.push(new MeshBasicMaterial({map: texture}));
+        materialArray.push(new MeshPhongMaterial({color: 0x00bef0}));
+        var faceMaterial = new MeshFaceMaterial(materialArray);
+      
+        var newMesh = new Mesh(new BoxGeometry(aspectRatio, 1, 0.05),faceMaterial);
+        newMesh.position.set(0,1,-1.5);
+      
+        this.addInteractable(newMesh);
+        this.streams[stream.streamId].threeObject = newMesh
+    }
+
+    waitForMetaData(id) {
+        if (this.streams[id] && this.streams[id].mediaStream.getVideoTracks()[0].getSettings().aspectRatio) {
+            this.addVideoObject(id);
+        } else {
+            setTimeout(() => {
+                this.waitForMetaData(id);
+            },200)
+        }
+    }
+
+    addStream(stream) {
+        if (!this.streams[stream.streamId] && stream.mediaType !== MediaType.AUDIO) {
+            this.streams[stream.streamId] = stream;
+            this.waitForMetaData(stream.streamId);
+        }
+    }
+
+    removeStream(id) {
+        console.log('removing',id);
+        console.log(this.streams,this.streams[id]);
+        let stream = this.streams[id]
+        this.removeInteractable(stream.threeObject)
+        delete this.streams[id];
     }
 
     attachControllers(renderer) {
@@ -32,12 +91,6 @@ class ControllerManager {
         // create and attach the model groups
         this.controller1.grip.add(this.controllerModelFactory.createControllerModel(this.controller1.grip))
         this.controller2.grip.add(this.controllerModelFactory.createControllerModel(this.controller2.grip))
-
-        /*
-        controller1.addEventListener( 'connected', function ( event ) {
-            console.log('controller');
-        });
-        */
 
        var geometry = new BufferGeometry().setFromPoints( [ new Vector3( 0, 0, 0 ), new Vector3( 0, 0, - 1 ) ] );
 

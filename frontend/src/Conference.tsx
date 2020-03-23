@@ -12,10 +12,11 @@ const Conference = () => {
     setXrEnabled(!xrEnabled);
   }
   return(
-    <div>
-      { xrEnabled ? <XrConference /> : <DesktopConference /> }
-      <ToggleXr enabled={xrEnabled} toggle={toggleEnabled} />
-    </div>
+      <div>
+        { xrEnabled ? <XrConference /> : <DesktopConference /> }
+        <ToggleXr enabled={xrEnabled} toggle={toggleEnabled} />
+      </div>
+    
   )
 }
 

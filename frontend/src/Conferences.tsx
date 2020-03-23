@@ -3,7 +3,7 @@ import { Redirect } from "react-router-dom";
 import { Button, Paper, Typography, Grid } from "@material-ui/core";
 import { createStyles, makeStyles } from "@material-ui/core/styles";
 
-const backendUrl = '';
+const backendUrl = 'https://meet.webrtc.bandwidth.com';
 
 const useStyles = makeStyles(theme =>
   createStyles({
@@ -34,10 +34,7 @@ const Conferences: React.FC = () => {
       }
     });
 
-    console.log("resp", resp);
-
     let body = await resp.json();
-    console.log("body", body);
 
     setRedirectTo(`/conferences/${body.id}`);
   };

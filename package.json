@@ -26,6 +26,7 @@
     "cors": "^2.8.5",
     "dotenv": "^8.1.0",
     "express": "^4.17.1",
+    "react-cache": "^2.0.0-alpha.1",
     "rpc-websockets": "^5.0.8"
   },
   "devDependencies": {

@@ -14,7 +14,7 @@ import { Phone } from "@material-ui/icons";
 import { randomBrandColorFromString } from "./Utils";
 
 const bandwidthRtc = new BandwidthRtc();
-const backendUrl = '';
+const backendUrl = 'https://meet.webrtc.bandwidth.com';
 const phoneNumber = process.env.REACT_APP_PHONE_NUMBER;
 
 const useStyles = makeStyles(theme => ({
@@ -92,6 +92,7 @@ const DesktopConference: React.FC = props => {
   const [redirectTo, setRedirectTo] = useState<string>();
 
   useEffect(() => {
+    // get current participants via backend when conference ID set/changes
     fetch(`${backendUrl}/conferences/${conferenceId}/participants`, {
       method: "POST",
       body: JSON.stringify({ name: "" }),
@@ -110,10 +111,14 @@ const DesktopConference: React.FC = props => {
           conferenceId: conferenceId,
           participantId: participantId
         }, options);
+        
         const publishResponse = await bandwidthRtc.publish();
         setLocalStream(publishResponse);
       }
     });
+    return () => {
+        bandwidthRtc.disconnect();
+    }
   }, [conferenceId]);
 
   useEffect(() => {

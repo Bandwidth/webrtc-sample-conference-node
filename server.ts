@@ -14,7 +14,7 @@ import BandwidthRtc, {
 dotenv.config();
 
 const accountId = <string>process.env.ACCOUNT_ID;
-const username = <string>process.env.USERNAME;
+const username = <string>process.env.WEBRTC_USERNAME;
 const password = <string>process.env.PASSWORD;
 
 const voiceNumber = <string>process.env.VOICE_NUMBER;

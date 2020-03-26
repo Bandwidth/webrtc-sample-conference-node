@@ -324,10 +324,10 @@ bandwidthRtc.onParticipantLeft(async (event: ParticipantLeftEvent) => {
   const participantId = event.participantId;
   const conference = conferences.get(conferenceId);
   if (conference) {
-    // Remove the participant from our local state
-    conference.participants.delete(participantId);
     // Remove the participant from the conference
     await bandwidthRtc.removeParticipant(conferenceId, participantId);
+    // Remove the participant from our local state
+    conference.participants.delete(participantId);
     // If everyone has left the conference, let's shut it down
     if (conference.participants.size === 0) {
       await bandwidthRtc.endConference(conferenceId);

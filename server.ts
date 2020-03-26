@@ -39,7 +39,6 @@ interface Conference {
 
 interface Participant {
   id: string;
-  deviceToken: string;
   status: string;
   name?: string;
   streams: string[];
@@ -156,7 +155,12 @@ app.post("/conferences/:conferenceId/participants", async (req, res) => {
       const phoneNumber = req.body.phoneNumber;
       console.log("name", name);
       let participant: CreateParticipantResponse = await bandwidthRtc.createParticipant(conferenceId);
-      await addParticipant(conference, participant);
+      conference.participants.set(participant.participantId, {
+        id: participant.participantId,
+        status: "pending",
+        name: name,
+        streams: []
+      });
       if (phoneNumber) {
         callPhoneNumber(phoneNumber, conferenceId, participant.participantId);
       }
@@ -246,19 +250,6 @@ const callPhoneNumber = async (
   console.log(`ringing ${phoneNumber}...`);
 };
 
-const addParticipant = (
-  conference: Conference,
-  participant: CreateParticipantResponse
-) => {
-  conference.participants.set(participant.participantId, {
-    id: participant.participantId,
-    deviceToken: participant.deviceToken,
-    status: "pending",
-    name: name,
-    streams: []
-  });
-}
-
 app.post("/callback/:conferenceId/:participantId", async (req, res) => {
   const conferenceId = req.params.conferenceId;
   const participantId = req.params.participantId;
@@ -294,7 +285,13 @@ app.post("/callback/joinConference", async (req, res) => {
   let conference = conferences.get(conferenceId);
   if (conference) {
     let participant: CreateParticipantResponse = await bandwidthRtc.createParticipant(conferenceId);
-    await addParticipant(conference, participant);
+    conference.participants.set(participant.participantId, {
+      id: participant.participantId,
+      status: "pending",
+      name: name,
+      streams: []
+    });
+
     const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
     <Response>
         <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>

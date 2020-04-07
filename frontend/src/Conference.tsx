@@ -108,8 +108,6 @@ const Conference: React.FC = props => {
           options.websocketUrl = responseBody.websocketUrl;
         }
         await bandwidthRtc.connect({
-          conferenceId: conferenceId,
-          participantId: participantId,
           deviceToken: deviceToken
         }, options);
         const publishResponse = await bandwidthRtc.publish();

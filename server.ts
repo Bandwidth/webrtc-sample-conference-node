@@ -277,6 +277,11 @@ app.post("/callback/incoming", async (req, res) => {
   console.log("transferring call");
 });
 
+app.post("/callback/status", (req, res) => {
+  console.log(`received call status update: ${JSON.stringify(req.body)}`);
+  res.status(200).send();
+});
+
 app.post("/callback/joinConference", async (req, res) => {
   const conferenceId = req.body.digits;
   console.log(
@@ -288,7 +293,7 @@ app.post("/callback/joinConference", async (req, res) => {
     conference.participants.set(participant.participantId, {
       id: participant.participantId,
       status: "pending",
-      name: name,
+      name: req.body.from,
       streams: []
     });
 

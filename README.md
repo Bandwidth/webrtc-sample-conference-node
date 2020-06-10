@@ -6,9 +6,9 @@ This sample will need to be publicly accessible to the internet in order for Ban
 
 **Unless you are running on `localhost`, you will need to use HTTPS**. Most modern browsers require a secure context when accessing cameras and microphones.
 
-Note that this sample currently works best in Chrome.  You may also be able to use Safari.  Firefox has WebRTC-related issues so we recommend not using it. 
+Note that this sample currently works best in Chrome.
 
-### Create a Bandwidth Voice API application
+## Create a Bandwidth Voice API application
 
 Follow the steps in [How to Create a Voice API Application](https://support.bandwidth.com/hc/en-us/articles/360035060934-How-to-Create-a-Voice-API-Application-V2) to create your Voice API appliation.
 
@@ -20,7 +20,7 @@ You do no need to set a callback user ID or password.
 
 Create the application and make note of your _Application ID_. You will provide this in the settings below.
 
-### Pull the source for this sample app
+## Pull the source for this sample app
 
 This git repo uses a submodule for the /frontend code, so when you clone this repo, please make sure you use the --recursive flag, like this, (from a bash terminal):
 ```bash
@@ -32,7 +32,7 @@ Then go into your new repo directory:
 $ cd webrtc-sample-conference-node
 ```
 
-### Configure your sample app
+## Configure your sample app
 
 Copy the default configuration file to make your own configuration file for the required environment variables:
 ```bash
@@ -51,7 +51,7 @@ Add your Voice Application settings to `.env`:
 * VOICE\_APP\_ID (the Voice Application ID from above)
 * VOICE\_CALLBACK\_URL (the publicly accessible URL you specified as the callback in the Voice Application. It should have `/callback` at the end of the URL)
 
-### Install dependencies and build
+## Install dependencies and build
 
 ```bash
 npm install

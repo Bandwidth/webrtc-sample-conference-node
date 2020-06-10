@@ -4,11 +4,13 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import axios from "axios";
+import { randanimal } from "randanimal";
+import slugify from "slugify";
 import BandwidthRtc, {
   ParticipantJoinedEvent,
   ParticipantLeftEvent,
   ParticipantPublishedEvent,
-  ParticipantUnsubscribedEvent
+  ParticipantUnsubscribedEvent,
 } from "@bandwidth/webrtc-node-sdk";
 
 dotenv.config();
@@ -30,9 +32,102 @@ const eventFilter = <string>process.env.WEBRTC_EVENT_FILTER;
 
 const app = express();
 
+app.use(cors());
+app.use(bodyParser.json());
+
+/**
+ * Used for load balancer health checks
+ */
+app.get("/ping", (req, res) => {
+  res.send("OK");
+});
+
+/**
+ * V2 voice callbacks need to be outside of Okta
+ */
+app.post("/callback/:conferenceId/:participantId", async (req, res) => {
+  console.log(
+    `received callback to /callback/${req.params.conferenceId}/${
+      req.params.participantId
+    }, body: ${JSON.stringify(req.body)}`
+  );
+  const conferenceId = req.params.conferenceId;
+  const participantId = req.params.participantId;
+  console.log(
+    `received callback to add ${participantId} to conference ${conferenceId}`
+  );
+  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
+  <Response>
+      <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please wait while we connect you to your conference.</SpeakSentence>
+      ${bandwidthRtc.generateTransferBxml(conferenceId, participantId)}
+  </Response>`;
+  console.log(`replying with bxml: ${bxml}`);
+  res.contentType("application/xml").send(bxml);
+});
+
+app.post("/callback/incoming", async (req, res) => {
+  console.log(
+    `received callback to /callback/incoming, body: ${JSON.stringify(req.body)}`
+  );
+  console.log(`new incoming call from ${req.body.from}`);
+  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
+  <Response>
+      <Gather maxDigits="7" gatherUrl="${voiceCallbackUrl}/joinConference">
+        <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please enter your 7 digit conference ID.</SpeakSentence>
+      </Gather>
+  </Response>`;
+  console.log(`replying with bxml: ${bxml}`);
+  res.contentType("application/xml").send(bxml);
+});
+
+app.post("/callback/status", (req, res) => {
+  console.log(`received call status update: ${JSON.stringify(req.body)}`);
+  res.status(200).send();
+});
+
+app.post("/callback/joinConference", async (req, res) => {
+  console.log(
+    `received callback to /callback/joinConference, body: ${JSON.stringify(
+      req.body
+    )}`
+  );
+  const conferenceId = req.body.digits;
+  console.log(
+    `${req.body.from} is attempting to join conference ${conferenceId}`
+  );
+
+  let conference = conferences.get(conferenceId);
+  if (!conference) {
+    console.log(`conference ${conferenceId} not found`);
+    res.status(400).send();
+    return;
+  }
+
+  let participantResponse = await bandwidthRtc.createParticipant(conferenceId);
+  conference.participants.set(participantResponse.participantId, {
+    id: participantResponse.participantId,
+    status: "pending",
+    name: req.body.from,
+    streams: [],
+  });
+
+  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
+  <Response>
+      <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
+      ${bandwidthRtc.generateTransferBxml(
+        conferenceId,
+        participantResponse.participantId
+      )}
+  </Response>`;
+  console.log(`replying with bxml: ${bxml}`);
+  res.contentType("application/xml").send(bxml);
+  console.log("transferring call");
+});
+
 interface Conference {
   id: string;
-  name?: string;
+  name: string;
+  slug: string;
   participants: Map<string, Participant>;
 }
 
@@ -42,6 +137,9 @@ interface Participant {
   name?: string;
   streams: string[];
 }
+
+const slugsToIds: Map<string, string> = new Map(); // Conference slug to conference id
+const conferences: Map<string, Conference> = new Map(); // Conference id to conference
 
 const bandwidthRtc = new BandwidthRtc();
 let options: any = {};
@@ -55,174 +153,110 @@ if (eventFilter) {
   options.eventFilter = eventFilter;
 }
 bandwidthRtc
-  .connect({
-    accountId: accountId,
-    username: username,
-    password: password
-  }, options)
+  .connect(
+    {
+      accountId: accountId,
+      username: username,
+      password: password,
+    },
+    options
+  )
   .then(() => {
     console.log("bandwidth rtc websocket connected");
   });
 
-app.use(cors());
-app.use(bodyParser.json());
+const createConference = async (slug: string, name = "") => {
+  let conferenceId = await bandwidthRtc.startConference();
+  console.log("created conference", conferenceId);
+  const conference: Conference = {
+    id: conferenceId,
+    name: name,
+    slug: slug,
+    participants: new Map(),
+  };
 
-/**
- * Used for load balancer health checks
- */
-app.get("/ping", (req, res) => {
-  res.send("OK");
-});
-
-app.get("/conferences", async (req, res) => {
-  try {
-    let ret = Array.from(conferences.values()).reduce(
-      (ret: any[], conference: Conference) => {
-        ret.push({ id: conference.id, name: conference.name });
-        return ret;
-      },
-      []
-    );
-    console.log("ret", ret);
-    res.status(200).send(ret);
-  } catch (e) {
-    console.log("e", e);
-    res.status(400).send(e);
-  }
-});
+  conferences.set(conferenceId, conference);
+  slugsToIds.set(slug, conferenceId);
+  console.log("conferenceMap", conferences);
+  return conference;
+};
 
 app.post("/conferences", async (req, res) => {
   try {
-    console.log("body", req.body);
-    const name = req.body.name;
-    console.log("name", name);
-    let conferenceId = await bandwidthRtc.startConference();
-    console.log("conferenceId", conferenceId);
-    conferences.set(conferenceId, {
-      id: conferenceId,
-      name: name,
-      participants: new Map()
+    console.log("creating conference", req.body);
+    let name = req.body.name;
+    if (!name) {
+      // Generate a random name
+      name = await randanimal();
+    }
+
+    const slug = slugify(name).toLowerCase();
+    console.log("using slug", slug);
+    if (slugsToIds.has(slug)) {
+      res.status(409).send();
+      return;
+    }
+
+    const conference = await createConference(slug, name);
+    res.status(200).send({
+      id: conference.id,
+      name: conference.name,
+      slug: conference.slug,
     });
-    console.log("conferenceMap", conferences);
-    res.status(200).send({ id: conferenceId, name: name });
   } catch (e) {
     res.status(400).send(e);
   }
 });
 
-app.delete("/conferences/:conferenceId", async (req, res) => {
+app.post("/conferences/:slug/participants", async (req, res) => {
   try {
-    conferences.delete(req.params.conferenceId);
-    await bandwidthRtc.endConference(req.params.conferenceId);
-    res.status(204).send();
-  } catch (e) {
-    res.status(400).send(e);
-  }
-});
+    console.log("createParticipant", req.params, req.body);
+    const slug = req.params.slug;
 
-app.get("/conferences/:conferenceId/participants", async (req, res) => {
-  try {
-    let conference = conferences.get(req.params.conferenceId);
-    if (conference) {
-      let ret = Array.from(conference.participants.values()).reduce(
-        (ret: any[], participant: Participant) => {
-          if (participant.status === "connected") {
-            ret.push({ id: participant.id, name: participant.name });
-          }
-          return ret;
-        },
-        []
+    let conference = null;
+    let conferenceId = slugsToIds.get(slug);
+    if (conferenceId) {
+      conference = conferences.get(conferenceId);
+    }
+
+    if (!conference) {
+      conference = await createConference(slug);
+      conferenceId = conference.id;
+    }
+    conferenceId = conferenceId as string;
+
+    let participantResponse = await bandwidthRtc.createParticipant(
+      conferenceId
+    );
+    conference.participants.set(participantResponse.participantId, {
+      id: participantResponse.participantId,
+      status: "pending",
+      name: req.body.name,
+      streams: [],
+    });
+
+    console.log("conference updated", conference);
+
+    const phoneNumber = req.body.phoneNumber;
+    if (phoneNumber) {
+      callPhoneNumber(
+        phoneNumber,
+        conferenceId,
+        participantResponse.participantId
       );
-      res.status(200).send(ret);
-    } else {
-      res.status(404).send();
     }
+    res.status(200).send({
+      websocketUrl: websocketDeviceUrl,
+      conferenceId: conferenceId,
+      participantId: participantResponse.participantId,
+      deviceToken: participantResponse.deviceToken,
+      phoneNumber: voiceNumber,
+    });
   } catch (e) {
-    console.log("e", e);
+    console.log("exception", e);
     res.status(400).send(e);
   }
 });
-
-app.post("/conferences/:conferenceId/participants", async (req, res) => {
-  try {
-    const conferenceId = req.params.conferenceId;
-    let conference = conferences.get(conferenceId);
-    if (conference) {
-      console.log("body", req.body);
-      const name = req.body.name;
-      const phoneNumber = req.body.phoneNumber;
-      console.log("name", name);
-      let participantId = await bandwidthRtc.createParticipant(conferenceId);
-      conference.participants.set(participantId, {
-        id: participantId,
-        status: "pending",
-        name: name,
-        streams: []
-      });
-      if (phoneNumber) {
-        callPhoneNumber(phoneNumber, conferenceId, participantId);
-      }
-      res.status(200).send({ id: participantId, websocketUrl: websocketDeviceUrl });
-    } else {
-      res.status(404).send();
-    }
-  } catch (e) {
-    res.status(400).send(e);
-  }
-});
-
-app.post(
-  "conferences/:conferenceId/participants/:participantId/unpublish",
-  async (req, res) => {
-    try {
-      let conference = conferences.get(req.params.conferenceId);
-      let participant = conferences.get(req.params.participantId);
-      if (!!conference && !!participant) {
-        console.log("body", req.body);
-        const name = req.body.name;
-        console.log("name", name);
-        console.log("body", req.body);
-        await bandwidthRtc.unpublish(
-          req.params.conferenceId,
-          req.params.participantId,
-          req.params.streamId
-        );
-        res.status(200).send();
-      } else {
-        res.status(404).send();
-      }
-    } catch (e) {
-      res.status(400).send(e);
-    }
-  }
-);
-
-app.post(
-  "conferences/:conferenceId/participants/:participantId/unsubscribe/:streamId",
-  async (req, res) => {
-    try {
-      let conference = conferences.get(req.params.conferenceId);
-      let participant = conferences.get(req.params.participantId);
-      let streamId = conferences.get(req.params.streamId);
-      if (!!conference && !!participant && !!streamId) {
-        console.log("body", req.body);
-        const name = req.body.name;
-        console.log("name", name);
-        console.log("body", req.body);
-        await bandwidthRtc.unsubscribe(
-          req.params.conferenceId,
-          req.params.participantId,
-          req.params.streamId
-        );
-        res.status(200).send();
-      } else {
-        res.status(404).send();
-      }
-    } catch (e) {
-      res.status(400).send(e);
-    }
-  }
-);
 
 const callPhoneNumber = async (
   phoneNumber: string,
@@ -235,74 +269,18 @@ const callPhoneNumber = async (
       from: voiceNumber,
       to: phoneNumber,
       answerUrl: `${voiceCallbackUrl}/${conferenceId}/${participantId}`,
-      applicationId: voiceAppId
+      applicationId: voiceAppId,
     },
     {
       auth: {
         username: username,
-        password: password
-      }
+        password: password,
+      },
     }
   );
   console.log(response.data);
   console.log(`ringing ${phoneNumber}...`);
 };
-
-app.post("/callback/:conferenceId/:participantId", async (req, res) => {
-  const conferenceId = req.params.conferenceId;
-  const participantId = req.params.participantId;
-  console.log(
-    `received callback to add ${participantId} to conference ${conferenceId}`
-  );
-  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-  <Response>
-      <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please wait while we connect you to your conference.</SpeakSentence>
-      ${bandwidthRtc.generateTransferBxml(conferenceId, participantId)}
-  </Response>`;
-  res.contentType("application/xml").send(bxml);
-  console.log("transferring call");
-});
-
-app.post("/callback/incoming", async (req, res) => {
-  console.log(`received new incoming call from ${req.body.from}`);
-  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-  <Response>
-      <Gather maxDigits="7" gatherUrl="${voiceCallbackUrl}/joinConference">
-        <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please enter your 7 digit conference ID.</SpeakSentence>
-      </Gather>
-  </Response>`;
-  res.contentType("application/xml").send(bxml);
-  console.log("transferring call");
-});
-
-app.post("/callback/joinConference", async (req, res) => {
-  const conferenceId = req.body.digits;
-  console.log(
-    `${req.body.from} is attempting to join conference ${conferenceId}`
-  );
-  let conference = conferences.get(conferenceId);
-  if (conference) {
-    let participantId = await bandwidthRtc.createParticipant(conferenceId);
-    conference.participants.set(participantId, {
-      id: participantId,
-      status: "pending",
-      name: req.body.from,
-      streams: []
-    });
-
-    const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-    <Response>
-        <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
-        ${bandwidthRtc.generateTransferBxml(conferenceId, participantId)}
-    </Response>`;
-    res.contentType("application/xml").send(bxml);
-    console.log("transferring call");
-  } else {
-    res.status(400).send();
-  }
-});
-
-const conferences: Map<string, Conference> = new Map();
 
 bandwidthRtc.onParticipantJoined(async (event: ParticipantJoinedEvent) => {
   console.log(
@@ -328,7 +306,9 @@ bandwidthRtc.onParticipantLeft(async (event: ParticipantLeftEvent) => {
     conference.participants.delete(participantId);
     // If everyone has left the conference, let's shut it down
     if (conference.participants.size === 0) {
+      slugsToIds.delete(conference.slug);
       await bandwidthRtc.endConference(conferenceId);
+      conferences.delete(conferenceId);
       console.log(`ended conference ${conferenceId}`);
     }
   }
@@ -344,7 +324,7 @@ bandwidthRtc.onParticipantPublished(
       `participant ${participantId} published in conference ${conferenceId} with stream id ${streamId}`
     );
 
-    await publishStreamToAllParticipants(conferenceId, participantId, streamId);
+    publishStreamToAllParticipants(conferenceId, participantId, streamId);
   }
 );
 
@@ -369,29 +349,33 @@ const subscribeParticipantToAllStreams = async (
     const participant = conference.participants.get(participantId);
     if (participant) {
       participant.status = "connected";
+
+      let promises = [];
       for (const [publisherId, publisher] of conference.participants) {
         if (participantId !== publisherId) {
           for (const streamId of publisher.streams) {
             console.log(
               `subscribing participant ${participantId} to stream ${publisherId}:${streamId}`
             );
-            try {
-              await bandwidthRtc.subscribe(
-                conferenceId,
-                participantId,
-                streamId
-              );
-            } catch (e) {
-              console.error(e);
-            }
+            promises.push(
+              bandwidthRtc.subscribe(conferenceId, participantId, streamId)
+            );
           }
+        }
+      }
+
+      for (const p of promises) {
+        try {
+          await p;
+        } catch (e) {
+          console.error(e);
         }
       }
     }
   }
 };
 
-const publishStreamToAllParticipants = (
+const publishStreamToAllParticipants = async (
   conferenceId: string,
   publisherId: string,
   streamId: string
@@ -401,6 +385,8 @@ const publishStreamToAllParticipants = (
     const publisher = conference.participants.get(publisherId);
     if (publisher) {
       publisher.streams.push(streamId);
+
+      let promises = [];
       for (const [participantId, participant] of conference.participants) {
         if (
           publisherId !== participantId &&
@@ -409,13 +395,22 @@ const publishStreamToAllParticipants = (
           console.log(
             `subscribing participant ${participantId} to stream ${publisherId}:${streamId}`
           );
-          bandwidthRtc.subscribe(conferenceId, participantId, streamId);
+          promises.push(
+            bandwidthRtc.subscribe(conferenceId, participantId, streamId)
+          );
+        }
+      }
+
+      for (const p of promises) {
+        try {
+          await p;
+        } catch (e) {
+          console.error(e);
         }
       }
     }
   }
 };
-
 
 app.use(express.static(path.join(__dirname, "..", "frontend", "build")));
 

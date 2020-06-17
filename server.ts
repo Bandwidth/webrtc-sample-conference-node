@@ -13,20 +13,11 @@ const accountId = <string>process.env.ACCOUNT_ID;
 const username = <string>process.env.USERNAME;
 const password = <string>process.env.PASSWORD;
 
-const voiceNumber = <string>process.env.VOICE_NUMBER;
-const voiceAppId = <string>process.env.VOICE_APP_ID;
-const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
-
 const port = process.env.PORT || 3000;
 const httpServerUrl = <string>process.env.WEBRTC_HTTP_SERVER_URL;
 const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL;
-const sipDestination = <string>process.env.SIP_DESTINATION;
 
 const app = express();
-
-const generateTransferBxml = (conferenceId: string, participantId: string) => {
-  return `<Transfer transferCallerId="+1${conferenceId}${participantId}"><PhoneNumber>${sipDestination}</PhoneNumber></Transfer>`;
-}
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -36,46 +27,6 @@ app.use(bodyParser.json());
  */
 app.get("/ping", (req, res) => {
   res.send("OK");
-});
-
-app.post("/callback/:conferenceId/:participantId", async (req, res) => {
-  console.log(
-    `received callback to /callback/${req.params.conferenceId}/${
-      req.params.participantId
-    }, body: ${JSON.stringify(req.body)}`
-  );
-  const conferenceId = req.params.conferenceId;
-  const participantId = req.params.participantId;
-  console.log(
-    `received callback to add ${participantId} to conference ${conferenceId}`
-  );
-  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-  <Response>
-      <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please wait while we connect you to your conference.</SpeakSentence>
-      ${generateTransferBxml(conferenceId, participantId)}
-  </Response>`;
-  console.log(`replying with bxml: ${bxml}`);
-  res.contentType("application/xml").send(bxml);
-});
-
-app.post("/callback/incoming", async (req, res) => {
-  console.log(
-    `received callback to /callback/incoming, body: ${JSON.stringify(req.body)}`
-  );
-  console.log(`new incoming call from ${req.body.from}`);
-  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-  <Response>
-      <Gather maxDigits="7" gatherUrl="${voiceCallbackUrl}/joinConference">
-        <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please enter your 7 digit conference ID.</SpeakSentence>
-      </Gather>
-  </Response>`;
-  console.log(`replying with bxml: ${bxml}`);
-  res.contentType("application/xml").send(bxml);
-});
-
-app.post("/callback/status", (req, res) => {
-  console.log(`received call status update: ${JSON.stringify(req.body)}`);
-  res.status(200).send();
 });
 
 interface Conference {
@@ -208,50 +159,17 @@ app.post("/conferences/:slug/participants", async (req, res) => {
       streams: [],
     });
 
-    const phoneNumber = req.body.phoneNumber;
-    if (phoneNumber) {
-      callPhoneNumber(
-        phoneNumber,
-        conferenceId,
-        participant.id
-      );
-    }
     res.status(200).send({
       websocketUrl: websocketDeviceUrl,
       conferenceId: conferenceId,
       participantId: participant.id,
       deviceToken: token,
-      phoneNumber: voiceNumber,
     });
   } catch (e) {
     console.log("exception", e);
     res.status(400).send(e);
   }
 });
-
-const callPhoneNumber = async (
-  phoneNumber: string,
-  conferenceId: string,
-  participantId: string
-) => {
-  let response = await axios.post(
-    `https://voice.bandwidth.com/api/v2/accounts/${accountId}/calls`,
-    {
-      from: voiceNumber,
-      to: phoneNumber,
-      answerUrl: `${voiceCallbackUrl}/${conferenceId}/${participantId}`,
-      applicationId: voiceAppId,
-    },
-    {
-      auth: {
-        username: username,
-        password: password,
-      },
-    }
-  );
-  console.log(response.data);
-  console.log(`ringing ${phoneNumber}...`);
-};
 
 app.use(express.static(path.join(__dirname, "..", "frontend", "build")));
 

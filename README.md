@@ -1,6 +1,6 @@
 # Conferencing sample app for Node.js using Bandwidth WebRTC
 
-To run this sample, you'll need a Bandwidth phone number, Voice API credentials and WebRTC enabled for your account. Please check with your Bandwidth Account Manager to ensure you are provisioned for WebRTC.
+To run this sample, you'll need WebRTC enabled for your account. Please check with your Bandwidth Account Manager to ensure you are provisioned for WebRTC.
 
 This sample will need to be publicly accessible to the internet in order for Bandwidth API callbacks to work properly. Otherwise you'll need a tool like [ngrok](https://ngrok.com) to provide access from Bandwidth API callbacks to localhost.
 

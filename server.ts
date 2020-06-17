@@ -29,24 +29,9 @@ app.get("/ping", (req, res) => {
   res.send("OK");
 });
 
-interface Conference {
-  id: string;
-  name: string;
-  slug: string;
-  participants: Map<string, Participant>;
-}
-
-interface Participant {
-  id: string;
-  status: string;
-  name?: string;
-  streams: string[];
-}
-
 const slugsToIds: Map<string, string> = new Map(); // Conference slug to conference id
-const conferences: Map<string, Conference> = new Map(); // Conference id to conference
 
-const createConference = async (slug: string, name = "") => {
+const createConference = async (slug: string) => {
   // Create session
   let response = await axios.post(
     `${httpServerUrl}/accounts/${accountId}/sessions`,
@@ -62,18 +47,10 @@ const createConference = async (slug: string, name = "") => {
   )
   console.log(`createConference response`, response.status, response.data);
 
-  let conferenceId = response.data.id;  
-  console.log("created conference", conferenceId);
-  const conference: Conference = {
-    id: conferenceId,
-    name: name,
-    slug: slug,
-    participants: new Map(),
-  };
+  let conferenceId = response.data.id;
 
-  conferences.set(conferenceId, conference);
   slugsToIds.set(slug, conferenceId);
-  return conference;
+  return conferenceId;
 };
 
 app.post("/conferences", async (req, res) => {
@@ -92,11 +69,10 @@ app.post("/conferences", async (req, res) => {
       return;
     }
 
-    const conference = await createConference(slug, name);
+    const conferenceId = await createConference(slug);
     res.status(200).send({
-      id: conference.id,
-      name: conference.name,
-      slug: conference.slug,
+      id: conferenceId,
+      slug: slug,
     });
   } catch (e) {
     res.status(400).send(e);
@@ -107,17 +83,31 @@ app.post("/conferences/:slug/participants", async (req, res) => {
   try {
     const slug = req.params.slug;
 
-    let conference = null;
     let conferenceId = slugsToIds.get(slug);
     if (conferenceId) {
-      conference = conferences.get(conferenceId);
+      try {
+        // Ensure the conference id we have mapped is still valid
+        await axios.get(
+          `${httpServerUrl}/accounts/${accountId}/sessions/${conferenceId}`,
+          {
+            auth: {
+              username: username,
+              password: password
+            }
+          }
+        );
+      } catch (e) {
+        conferenceId = undefined;
+      }
+    }
+    
+    if (!conferenceId) {
+      // Create a new conference for this slug
+      conferenceId = await createConference(slug);
+      console.log(`created new conference ${conferenceId} for slug ${slug}`);
     }
 
-    if (!conference) {
-      conference = await createConference(slug);
-      conferenceId = conference.id;
-    }
-    conferenceId = conferenceId as string;
+    console.log(`using conferenceId ${conferenceId} for slug ${slug}`);
 
     // Create participant
     let createParticipantResponse = await axios.post(
@@ -151,13 +141,6 @@ app.post("/conferences/:slug/participants", async (req, res) => {
         }
       }
     )
-
-    conference.participants.set(participant.id, {
-      id: participant.id,
-      status: "pending",
-      name: req.body.name,
-      streams: [],
-    });
 
     res.status(200).send({
       websocketUrl: websocketDeviceUrl,

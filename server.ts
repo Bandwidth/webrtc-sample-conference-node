@@ -45,7 +45,7 @@ const sessionIdsToConferenceCodes: Map<string, string> = new Map(); // Session i
 
 const generateTransferBxml = async (deviceToken: string) => {
   //Get the tid out of the participant jwt
-  let decoded = jwt_decode(deviceToken);
+  let decoded: any = jwt_decode(deviceToken);
   return `<Transfer transferCallerId="${decoded.tid}"><PhoneNumber>${sipxNumber}</PhoneNumber></Transfer>`;
 }
 
@@ -147,9 +147,9 @@ app.post("/conferences", async (req, res) => {
 app.post("/conferences/:slug/participants", async (req, res) => {
   try {
     const slug = req.params.slug;
-
-    let conferenceId = slugsToIds.get(slug);
-    if (conferenceId) {
+    let conferenceId: string
+    if (slugsToIds.has(slug)) {
+      conferenceId = slugsToIds.get(slug)!;
       try {
         // Ensure the conference id we have mapped is still valid
         await axios.get(
@@ -162,11 +162,10 @@ app.post("/conferences/:slug/participants", async (req, res) => {
           }
         );
       } catch (e) {
-        conferenceId = undefined;
+        console.log(e)
       }
     }
-    
-    if (!conferenceId) {
+    else {
       // Create a new conference for this slug
       conferenceId = await createConference(slug);
       console.log(`created new conference ${conferenceId} for slug ${slug}`);
@@ -232,7 +231,7 @@ app.post("/callback/joinConference", async (req, res) => {
     res.status(400).send();
     return;
   }
-  let slug = sessionIdsToSlugs.get(sessionId)
+  let slug: string = sessionIdsToSlugs.get(sessionId)!
 
   let createParticipantResponse = await createParticipant(slug, ["AUDIO"]);
   let participant = createParticipantResponse.participant;

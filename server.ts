@@ -7,6 +7,8 @@ import axios from "axios";
 import { randanimal } from "randanimal";
 import slugify from "slugify";
 import jwt_decode from "jwt-decode";
+import session from "express-session";
+import { ExpressOIDC } from "@okta/oidc-middleware";
 
 dotenv.config();
 
@@ -20,8 +22,13 @@ const voiceAppId = <string>process.env.VOICE_APP_ID;
 const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 
 const port = process.env.PORT || 3000;
-const httpServerUrl = <string>process.env.WEBRTC_HTTP_SERVER_URL;
-const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL;
+const httpServerUrl = <string>process.env.WEBRTC_HTTP_SERVER_URL || "https://api.webrtc.bandwidth.com/v1";
+const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL || "wss://device.webrtc.bandwidth.com";
+
+const oktaClientId = <string>process.env.OKTA_CLIENT_ID;
+const oktaClientSecret = <string>process.env.OKTA_CLIENT_SECRET;
+const oktaIssuerUrl = <string>process.env.OKTA_ISSUER_URL;
+const appBaseUrl = <string>process.env.APP_BASE_URL;
 
 const conferenceCodeLength = 3;
 
@@ -30,6 +37,37 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json());
+
+/**
+* If OKTA_CLIENT_ID is set, we'll use ExpressOIDC to limit use of this app to 
+* those who can auth via Okta
+*/
+let oidc = null;
+if (oktaClientId) {
+  app.use(
+    session({
+      secret: oktaClientSecret,
+      resave: true,
+      saveUninitialized: false,
+    })
+  );
+
+  oidc = new ExpressOIDC({
+    issuer: oktaIssuerUrl,
+    client_id: oktaClientId,
+    client_secret: oktaClientSecret,
+    redirect_uri: `${appBaseUrl}/authorization-code/callback`,
+    scope: "openid profile",
+    appBaseUrl: appBaseUrl,
+  });
+  
+  // ExpressOIDC will attach handlers for the /login and /authorization-code/callback routes
+  app.use(oidc.router);
+  app.use("/", oidc.ensureAuthenticated());
+  app.use("/conferences", oidc.ensureAuthenticated());
+  app.use("/conferences/*", oidc.ensureAuthenticated());
+  console.log('Using Okta authentication')
+}
 
 /**
  * Used for load balancer health checks
@@ -193,6 +231,7 @@ app.post("/conferences/:slug/participants", async (req, res) => {
   }
 });
 
+
 app.post("/callback/incoming", async (req, res) => {
   console.log(
       `received callback to /callback/incoming, body: ${JSON.stringify(req.body)}`
@@ -248,7 +287,7 @@ app.post("/callback/joinConference", async (req, res) => {
   res.contentType("application/xml").send(bxml);
   console.log("transferring call");
 });
-////
+
 app.use(express.static(path.join(__dirname, "..", "frontend", "build")));
 
 app.get("*", (req, res) => {

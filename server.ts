@@ -39,6 +39,14 @@ app.use(cors());
 app.use(bodyParser.json());
 
 /**
+ * Used for load balancer health checks
+ */
+app.get("/ping", (req, res) => {
+  res.send("OK");
+});
+
+
+/**
 * If OKTA_CLIENT_ID is set, we'll use ExpressOIDC to limit use of this app to 
 * those who can auth via Okta
 */
@@ -68,13 +76,6 @@ if (oktaClientId) {
   app.use("/conferences/*", oidc.ensureAuthenticated());
   console.log('Using Okta authentication')
 }
-
-/**
- * Used for load balancer health checks
- */
-app.get("/ping", (req, res) => {
-  res.send("OK");
-});
 
 const slugsToIds: Map<string, string> = new Map(); // Conference slug to session id
 const sessionIdsToSlugs: Map<string, string> = new Map(); // Session id to slug

@@ -178,7 +178,8 @@ app.post("/conferences", async (req, res) => {
       slug: slug,
     });
   } catch (e) {
-    res.status(400).send(e);
+    console.log('Error creating conference', e);
+    res.status(400).send();
   }
 });
 
@@ -226,8 +227,8 @@ app.post("/conferences/:slug/participants", async (req, res) => {
       phoneNumber: voiceNumber
     });
   } catch (e) {
-    console.log("exception", e);
-    res.status(400).send(e);
+    console.log('Error creating participant', e);
+    res.status(400).send();
   }
 });
 

@@ -85,7 +85,8 @@ const sessionIdsToConferenceCodes: Map<string, string> = new Map(); // Session i
 const generateTransferBxml = async (deviceToken: string) => {
   //Get the tid out of the participant jwt
   let decoded: any = jwt_decode(deviceToken);
-  return `<Transfer transferCallerId="${decoded.tid}"><PhoneNumber>${sipxNumber}</PhoneNumber></Transfer>`;
+  const tid = decoded.t || decoded.tid;
+  return `<Transfer transferCallerId="${tid}"><PhoneNumber>${sipxNumber}</PhoneNumber></Transfer>`;
 }
 
 const createConference = async (slug: string) => {

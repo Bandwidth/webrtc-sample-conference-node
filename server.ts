@@ -6,9 +6,9 @@ import dotenv from "dotenv";
 import axios from "axios";
 import { randanimal } from "randanimal";
 import slugify from "slugify";
-import jwt_decode from "jwt-decode";
 import session from "express-session";
 import { ExpressOIDC } from "@okta/oidc-middleware";
+const bandwidthWebRTC = require("@bandwidth/webrtc");
 
 dotenv.config();
 
@@ -16,9 +16,7 @@ const accountId = <string>process.env.ACCOUNT_ID;
 const username = <string>process.env.USERNAME;
 const password = <string>process.env.PASSWORD;
 
-const sipxNumber = <string>process.env.WEBRTC_SIPX_NUMBER;
 const voiceNumber = <string>process.env.VOICE_NUMBER;
-const voiceAppId = <string>process.env.VOICE_APP_ID;
 const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 
 const port = process.env.PORT || 3000;
@@ -32,6 +30,7 @@ const appBaseUrl = <string>process.env.APP_BASE_URL;
 
 const conferenceCodeLength = 3;
 
+var webRTCController = bandwidthWebRTC.APIController;
 
 const app = express();
 
@@ -81,13 +80,6 @@ const slugsToIds: Map<string, string> = new Map(); // Conference slug to session
 const sessionIdsToSlugs: Map<string, string> = new Map(); // Session id to slug
 const conferenceCodeToIds: Map<string, string> = new Map(); // Conference code to session id
 const sessionIdsToConferenceCodes: Map<string, string> = new Map(); // Session id to conference code
-
-const generateTransferBxml = async (deviceToken: string) => {
-  //Get the tid out of the participant jwt
-  let decoded: any = jwt_decode(deviceToken);
-  const tid = decoded.t || decoded.tid;
-  return `<Transfer transferCallerId="${tid}"><PhoneNumber>${sipxNumber}</PhoneNumber></Transfer>`;
-}
 
 const createConference = async (slug: string) => {
   // Create session
@@ -284,7 +276,7 @@ app.post("/callback/joinConference", async (req, res) => {
   const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
   <Response>
       <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
-      ${await generateTransferBxml(token)}
+      ${webRTCController.generateTransferBxmlVerb(token)}
   </Response>`;
   console.log(`replying with bxml: ${bxml}`);
   res.contentType("application/xml").send(bxml);

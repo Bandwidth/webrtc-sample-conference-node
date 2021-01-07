@@ -22,6 +22,7 @@ const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 const port = process.env.PORT || 3000;
 const httpServerUrl = <string>process.env.WEBRTC_HTTP_SERVER_URL || "https://api.webrtc.bandwidth.com/v1";
 const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL || "wss://device.webrtc.bandwidth.com";
+const sipTransferUrl = <string>process.env.SIP_TRANSFER_URL || "sip:sipx.webrtc.bandwidth.com:5060";
 
 const oktaClientId = <string>process.env.OKTA_CLIENT_ID;
 const oktaClientSecret = <string>process.env.OKTA_CLIENT_SECRET;
@@ -276,7 +277,7 @@ app.post("/callback/joinConference", async (req, res) => {
   const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
   <Response>
       <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
-      ${webRTCController.generateTransferBxmlVerb(token)}
+      ${webRTCController.generateTransferBxmlVerb(token, sipTransferUrl)}
   </Response>`;
   console.log(`replying with bxml: ${bxml}`);
   res.contentType("application/xml").send(bxml);

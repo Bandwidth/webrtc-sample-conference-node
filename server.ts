@@ -82,7 +82,7 @@ const sessionIdsToSlugs: Map<string, string> = new Map(); // Session id to slug
 const conferenceCodeToIds: Map<string, string> = new Map(); // Conference code to session id
 const sessionIdsToConferenceCodes: Map<string, string> = new Map(); // Session id to conference code
 
-const createConference = async (slug: string) => {
+const createConference = async (slug: string): Promise<string> => {
   // Create session
   let response = await axios.post(
     `${httpServerUrl}/accounts/${accountId}/sessions`,
@@ -110,6 +110,18 @@ const createConference = async (slug: string) => {
   sessionIdsToConferenceCodes.set(sessionId, freeConferenceCode);
   return sessionId;
 };
+
+const getConference = async (conferenceId: string): Promise<string> => {
+  return axios.get(
+    `${httpServerUrl}/accounts/${accountId}/sessions/${conferenceId}`,
+    {
+      auth: {
+        username: username,
+        password: password
+      }
+    }
+  );
+}
 
 const createParticipant = async (slug: string, publishPermissions: string[]) => {
   let createParticipantResponse = await axios.post(
@@ -163,11 +175,17 @@ app.post("/conferences", async (req, res) => {
     const slug = slugify(name).toLowerCase();
     console.log("using slug", slug);
     if (slugsToIds.has(slug)) {
-      res.status(409).send();
-      return;
+      let conferenceId = slugsToIds.get(slug)!;
+      try {
+        await getConference(conferenceId);
+        res.status(409).send();
+        return;
+      } catch (e) {
+        slugsToIds.delete(slug);
+      }
     }
 
-    const conferenceId = await createConference(slug);
+    let conferenceId = await createConference(slug);
     res.status(200).send({
       id: conferenceId,
       slug: slug,
@@ -181,25 +199,20 @@ app.post("/conferences", async (req, res) => {
 app.post("/conferences/:slug/participants", async (req, res) => {
   try {
     const slug = req.params.slug;
-    let conferenceId: string
-    if (slugsToIds.has(slug)) {
-      conferenceId = slugsToIds.get(slug)!;
+    let conferenceId = slugsToIds.get(slug);
+    if (conferenceId) {
       try {
         // Ensure the conference id we have mapped is still valid
-        await axios.get(
-          `${httpServerUrl}/accounts/${accountId}/sessions/${conferenceId}`,
-          {
-            auth: {
-              username: username,
-              password: password
-            }
-          }
-        );
+        console.log(`checking validity of conference ${conferenceId}`);
+        await getConference(conferenceId);
       } catch (e) {
-        console.log(e)
+        console.log(`conference ${conferenceId} is invalid, removing mapping`);
+        conferenceId = undefined;
+        slugsToIds.delete(slug);
       }
     }
-    else {
+
+    if (!conferenceId) {
       // Create a new conference for this slug
       conferenceId = await createConference(slug);
       console.log(`created new conference ${conferenceId} for slug ${slug}`);

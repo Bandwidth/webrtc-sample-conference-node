@@ -14,11 +14,11 @@ Follow the steps in [How to Create a Voice API Application](https://support.band
 
 In steps 7 and 8, make sure they are set to POST.
 
-In step 9, provide the publicly accessible URL of your sample app. You need to add `/callback` to the end of this URL in the Voice Application settings.
+In step 9, for **Call initiated callback URL**, provide the publicly accessible URL of your sample app. You need to add `/callback/incoming` to the end of this URL in the Voice Application settings.
 
 You do no need to set a callback user ID or password. 
 
-Create the application and make note of your _Application ID_. You will provide this in the settings below.
+Create the application and make note of your _Application ID_.
 
 ## Pull the source for this sample app
 
@@ -45,11 +45,12 @@ Add your Bandwidth account settings to `.env`:
 * USERNAME
 * PASSWORD
 
+* WEBRTC_HTTP_SERVER_URL (Customer API URL, which defaults to `https://api.webrtc.bandwidth.com/v1`. Optionally override if you want to use your personal stack instead, i.e. `https://sife6x5c6l.execute-api.us-east-1.amazonaws.com/v1`)
+* WEBRTC_DEVICE_URL (Device Websocket API URL, which defaults to `wss://device.webrtc.bandwidth.com`. Optionally override if you want to use your personal stack instead, i.e. `wss://t7b04iwatb.execute-api.us-east-1.amazonaws.com`)
+
 Add your Voice Application settings to `.env`:
-* WEBRTC\_SIPX\_NUMBER (Bandwidth phone number used to transfer sip calls into WebRTC)
 * VOICE\_NUMBER (Bandwith phone number associated with the Voice Application in [E.164 format](https://www.bandwidth.com/glossary/e164/))
-* VOICE\_APP\_ID (the Voice Application ID from above)
-* VOICE\_CALLBACK\_URL (the publicly accessible URL you specified as the callback in the Voice Application. It should have `/callback` at the end of the URL)
+* VOICE\_CALLBACK\_URL (the publicly accessible URL for your app, i.e. ngrok URL, with no trailing slash)
 
 ## Install dependencies and build
 

@@ -21,7 +21,7 @@ const voiceNumber = <string>process.env.VOICE_NUMBER;
 const voiceAppId = <string>process.env.VOICE_APP_ID;
 const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 const httpServerUrl = <string>process.env.WEBRTC_HTTP_SERVER_URL || "https://api.webrtc.bandwidth.com/v1";
 const websocketDeviceUrl = <string>process.env.WEBRTC_DEVICE_URL || "wss://device.webrtc.bandwidth.com";
 
@@ -124,7 +124,8 @@ const createParticipant = async (slug: string, publishPermissions: string[]) => 
       {
         callbackUrl: "https://example.com",
         publishPermissions: publishPermissions,
-        tag: slug
+        tag: slug,
+        deviceApiVersion: "v3",
       },
       {
         auth: {

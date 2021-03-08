@@ -123,14 +123,14 @@ const getConference = async (conferenceId: string): Promise<string> => {
   );
 }
 
-const createParticipant = async (slug: string, publishPermissions: string[]) => {
+const createParticipant = async (slug: string, version: string, publishPermissions: string[]) => {
   let createParticipantResponse = await axios.post(
       `${httpServerUrl}/accounts/${accountId}/participants`,
       {
         callbackUrl: "https://example.com",
         publishPermissions: publishPermissions,
         tag: slug,
-        deviceApiVersion: "v3",
+        deviceApiVersion: version,
       },
       {
         auth: {
@@ -199,6 +199,7 @@ app.post("/conferences", async (req, res) => {
 
 app.post("/conferences/:slug/participants", async (req, res) => {
   try {
+    const version = req.query.version || "v3";
     const slug = req.params.slug;
     let conferenceId = slugsToIds.get(slug);
     if (conferenceId) {
@@ -221,7 +222,7 @@ app.post("/conferences/:slug/participants", async (req, res) => {
 
     console.log(`using conferenceId ${conferenceId} for slug ${slug}`);
 
-    let createParticipantResponse = await createParticipant(slug, ["AUDIO", "VIDEO"]);
+    let createParticipantResponse = await createParticipant(slug, version, ["AUDIO", "VIDEO"]);
     let participant = createParticipantResponse.participant;
     let token = createParticipantResponse.deviceToken;
 

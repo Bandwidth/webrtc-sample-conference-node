@@ -281,9 +281,10 @@ app.post("/callback/joinConference", async (req, res) => {
     res.status(400).send();
     return;
   }
-  let slug: string = sessionIdsToSlugs.get(sessionId)!
+  let slug: string = sessionIdsToSlugs.get(sessionId)!;
 
-  let createParticipantResponse = await createParticipant(slug, ["AUDIO"]);
+  // TODO: support v3 for phones, this is basically broken right now
+  let createParticipantResponse = await createParticipant(slug, "v2", ["AUDIO"]);
   let participant = createParticipantResponse.participant;
   let token = createParticipantResponse.deviceToken;
 

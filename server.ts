@@ -179,21 +179,23 @@ app.post("/conferences", async (req, res) => {
       let conferenceId = slugsToIds.get(slug)!;
       try {
         await getConference(conferenceId);
-        res.status(409).send();
-        return;
+        return res.status(200).send({
+          id: conferenceId,
+          slug: slug,
+        });
       } catch (e) {
         slugsToIds.delete(slug);
       }
     }
 
     let conferenceId = await createConference(slug);
-    res.status(200).send({
+    return res.status(200).send({
       id: conferenceId,
       slug: slug,
     });
   } catch (e) {
     console.log('Error creating conference', e);
-    res.status(400).send();
+    return res.status(400).send();
   }
 });
 

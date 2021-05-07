@@ -17,7 +17,9 @@ const username = <string>process.env.USERNAME;
 const password = <string>process.env.PASSWORD;
 
 const voiceNumber = <string>process.env.VOICE_NUMBER;
-const voiceCallbackUrl = <string>process.env.VOICE_CALLBACK_URL;
+
+const baseCallbackUrl = <string>process.env.CALLBACK_URL;
+const webrtcCallbackPath = "/callback/webrtc";
 
 const port = process.env.PORT || 5000;
 const httpServerUrl = <string>process.env.WEBRTC_HTTP_SERVER_URL || "https://api.webrtc.bandwidth.com/v1";
@@ -30,6 +32,7 @@ const oktaIssuerUrl = <string>process.env.OKTA_ISSUER_URL;
 const appBaseUrl = <string>process.env.APP_BASE_URL;
 
 const conferenceCodeLength = 3;
+const participantLifetimeMillis = 9 * 60 * 60 * 1000; // 9 hours
 
 var webRTCController = bandwidthWebRTC.APIController;
 
@@ -81,6 +84,9 @@ const slugsToIds: Map<string, string> = new Map(); // Conference slug to session
 const sessionIdsToSlugs: Map<string, string> = new Map(); // Session id to slug
 const conferenceCodeToIds: Map<string, string> = new Map(); // Conference code to session id
 const sessionIdsToConferenceCodes: Map<string, string> = new Map(); // Session id to conference code
+const participantIdsToSessionIds: Map<string, string> = new Map(); // Participant id to session id they are in
+const sessionIdsToParticipantIds: Map<string, Set<string>> = new Map(); // Session id to set of participant ids in the session
+const participantIdsToCleanupTimeouts: Map<string, NodeJS.Timeout> = new Map(); // Participant ids to timeouts which will cleanup said participants
 
 const createConference = async (slug: string): Promise<string> => {
   // Create session
@@ -96,8 +102,6 @@ const createConference = async (slug: string): Promise<string> => {
       }
     }
   )
-  console.log(`createConference response`, response.status, response.data);
-
   let sessionId = response.data.id;
 
   slugsToIds.set(slug, sessionId);
@@ -108,6 +112,7 @@ const createConference = async (slug: string): Promise<string> => {
   }
   conferenceCodeToIds.set(freeConferenceCode, sessionId);
   sessionIdsToConferenceCodes.set(sessionId, freeConferenceCode);
+  sessionIdsToParticipantIds.set(sessionId, new Set());
   return sessionId;
 };
 
@@ -123,11 +128,28 @@ const getConference = async (conferenceId: string): Promise<string> => {
   );
 }
 
+const deleteConference = async (conferenceId: string) => {
+  console.log(`Deleting conference ${conferenceId}`);
+  try {
+    await axios.delete(
+      `${httpServerUrl}/accounts/${accountId}/sessions/${conferenceId}`,
+      {
+        auth: {
+          username: username,
+          password: password
+        }
+      }
+    );
+    } catch (err) {
+      console.log(`Error deleting session ${conferenceId}`, err.response.data);
+    }
+}
+
 const createParticipant = async (slug: string, version: string, publishPermissions: string[]) => {
   let createParticipantResponse = await axios.post(
       `${httpServerUrl}/accounts/${accountId}/participants`,
       {
-        callbackUrl: "https://example.com",
+        callbackUrl: `${baseCallbackUrl}${webrtcCallbackPath}`,
         publishPermissions: publishPermissions,
         tag: slug,
         deviceApiVersion: version,
@@ -140,10 +162,19 @@ const createParticipant = async (slug: string, version: string, publishPermissio
       }
   )
 
+  const participant = createParticipantResponse.data.participant;
+  const deviceToken = createParticipantResponse.data.token;
+
+  // Set a timeout to clean this participant up later in case we don't receive an onLeave callback
+  const timeout = setTimeout(() => {
+    cleanupParticipant(participant.id);
+  }, participantLifetimeMillis);
+  participantIdsToCleanupTimeouts.set(participant.id, timeout);
+
   return {
-    participant: createParticipantResponse.data.participant,
-    deviceToken: createParticipantResponse.data.token
-  };
+    participant,
+    deviceToken,
+  }
 };
 
 const addParticipantToSession = async (participantId: string, sessionId: string) => {
@@ -161,8 +192,71 @@ const addParticipantToSession = async (participantId: string, sessionId: string)
       }
   )
 
+  participantIdsToSessionIds.set(participantId, sessionId);
+  sessionIdsToParticipantIds.get(sessionId)?.add(participantId);
 }
 
+const deleteParticipant = async (participantId: string) => {
+  console.log(`Deleting participant ${participantId}`);
+  try {
+    await axios.delete(
+        `${httpServerUrl}/accounts/${accountId}/participants/${participantId}`,
+        {
+          auth: {
+            username: username,
+            password: password
+          }
+        }
+    )
+  } catch (err) {
+    console.log(`Error deleting participant ${participantId}`, err.response.data);
+  }
+};
+
+/**
+ * Delete a partipant from the WebRTC platform as well as all local maps
+ * If there aren't any participants left in the session this participant was in, clean the session up too
+ * @param participantId participant id
+ */
+const cleanupParticipant = async (participantId: string) => {
+  console.log(`Cleaning up participant ${participantId}`);
+  participantIdsToCleanupTimeouts.delete(participantId);
+  const sessionId = participantIdsToSessionIds.get(participantId);
+  participantIdsToSessionIds.delete(participantId);
+
+  await deleteParticipant(participantId);
+  
+  if (sessionId) {
+    const participantIds = sessionIdsToParticipantIds.get(sessionId);
+    participantIds?.delete(participantId);
+    if (!participantIds || participantIds.size === 0) {
+      await cleanupSession(sessionId);
+    }
+  }
+}
+
+/**
+ * Delete a session from the WebRTC platform as well as all local maps
+ * @param sessionId session id
+ */
+const cleanupSession = async (sessionId: string) => {
+  console.log(`Cleaning up session ${sessionId}`);
+  sessionIdsToParticipantIds.delete(sessionId);
+  
+  const conferenceCode = sessionIdsToConferenceCodes.get(sessionId);
+  sessionIdsToConferenceCodes.delete(sessionId);
+  if (conferenceCode) {
+    conferenceCodeToIds.delete(conferenceCode);
+  }
+
+  const slug = sessionIdsToSlugs.get(sessionId);
+  sessionIdsToSlugs.delete(sessionId);
+  if (slug) {
+    slugsToIds.delete(slug);
+  }
+
+  await deleteConference(sessionId);
+}
 
 app.post("/conferences", async (req, res) => {
   try {
@@ -244,6 +338,21 @@ app.post("/conferences/:slug/participants", async (req, res) => {
   }
 });
 
+app.post(webrtcCallbackPath, async (req, res) => {
+  const payload = req.body;
+  console.log(`Received WebRTC callback (${Date.now() - payload.timestamp}ms delay)`, payload);
+  res.status(200).send();
+  if (payload.event === "onLeave") {
+    const participantId = payload.participantId;
+
+    // Clear the participant cleanup timeout since we know we don't need it
+    const timeout = participantIdsToCleanupTimeouts.get(participantId);
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    await cleanupParticipant(participantId);
+  }
+});
 
 app.post("/callback/incoming", async (req, res) => {
   console.log(
@@ -252,7 +361,7 @@ app.post("/callback/incoming", async (req, res) => {
   console.log(`new incoming call from ${req.body.from}`);
   const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
   <Response>
-      <Gather maxDigits="${conferenceCodeLength}" gatherUrl="${voiceCallbackUrl}/joinConference">
+      <Gather maxDigits="${conferenceCodeLength}" gatherUrl="${baseCallbackUrl}/callback/joinConference">
         <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please enter your ${conferenceCodeLength} digit conference ID.</SpeakSentence>
       </Gather>
   </Response>`;

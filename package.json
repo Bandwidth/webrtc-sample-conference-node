@@ -18,7 +18,6 @@
   "license": "MIT",
   "dependencies": {
     "@bandwidth/webrtc": "^0.5.0",
-    "@bandwidth/webrtc-node-sdk": "1.1.0",
     "@okta/oidc-middleware": "^4.0.1",
     "axios": "^0.21.1",
     "body-parser": "^1.19.0",

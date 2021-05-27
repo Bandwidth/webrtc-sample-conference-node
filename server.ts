@@ -196,6 +196,23 @@ const addParticipantToSession = async (participantId: string, sessionId: string)
   sessionIdsToParticipantIds.get(sessionId)?.add(participantId);
 }
 
+const removeParticipantFromSession = async (participantId: string, sessionId: string) => {
+  console.log(`Removing participant ${participantId} from session ${sessionId}`);
+  try {
+    await axios.delete(
+        `${httpServerUrl}/accounts/${accountId}/sessions/${sessionId}/participants/${participantId}`,
+        {
+          auth: {
+            username: username,
+            password: password
+          }
+        }
+    )
+  } catch (err) {
+    console.log(`Error removing participant ${participantId} from session ${sessionId}`, err.response.data);
+  }
+}
+
 const deleteParticipant = async (participantId: string) => {
   console.log(`Deleting participant ${participantId}`);
   try {
@@ -223,6 +240,10 @@ const cleanupParticipant = async (participantId: string) => {
   participantIdsToCleanupTimeouts.delete(participantId);
   const sessionId = participantIdsToSessionIds.get(participantId);
   participantIdsToSessionIds.delete(participantId);
+
+  if (sessionId) {
+    await removeParticipantFromSession(participantId, sessionId);
+  }
 
   await deleteParticipant(participantId);
   

@@ -402,6 +402,8 @@ app.post("/callback/joinConference", async (req, res) => {
       )}`
   );
   console.log(req.body.digits);
+  let voiceCallId = req.body.callId;
+  console.log(`Here is the callID ${voiceCallId}`)
   let conferenceCode = req.body.digits;
   let sessionId = conferenceCodeToIds.get(conferenceCode);
   console.log(
@@ -424,7 +426,7 @@ app.post("/callback/joinConference", async (req, res) => {
   const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
   <Response>
       <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
-      ${webRTCController.generateTransferBxmlVerb(token, sipTransferUrl)}
+      ${webRTCController.generateTransferBxmlVerb(token, sipTransferUrl, voiceCallId)}
   </Response>`;
   console.log(`replying with bxml: ${bxml}`);
   res.contentType("application/xml").send(bxml);

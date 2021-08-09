@@ -8,7 +8,7 @@ import { randanimal } from "randanimal";
 import slugify from "slugify";
 import session from "express-session";
 import { ExpressOIDC } from "@okta/oidc-middleware";
-const bandwidthWebRTC = require("@bandwidth/webrtc");
+import { ApiController as WebRtcController } from "@bandwidth/webrtc";
 
 dotenv.config();
 
@@ -34,7 +34,13 @@ const appBaseUrl = <string>process.env.APP_BASE_URL;
 const conferenceCodeLength = 3;
 const participantLifetimeMillis = 9 * 60 * 60 * 1000; // 9 hours
 
-var webRTCController = bandwidthWebRTC.APIController;
+// Check to make sure required environment variables are set
+if (!accountId || !username || !password) {
+  console.error(
+      "ERROR! Please set the ACCOUNT_ID, USERNAME, and PASSWORD environment variables before running this app"
+  );
+  process.exit(1);
+}
 
 const app = express();
 
@@ -404,8 +410,9 @@ app.post("/callback/joinConference", async (req, res) => {
   console.log(req.body.digits);
   let conferenceCode = req.body.digits;
   let sessionId = conferenceCodeToIds.get(conferenceCode);
+  let callId = req.body.callId;
   console.log(
-      `${req.body.from} is attempting to join conference code ${conferenceCode}, session id ${sessionId}`
+      `${req.body.from} is attempting to join conference code ${conferenceCode}, session id ${sessionId}, voice call ID ${callId}`
   );
 
   if (!sessionId) {
@@ -424,7 +431,7 @@ app.post("/callback/joinConference", async (req, res) => {
   const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
   <Response>
       <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
-      ${webRTCController.generateTransferBxmlVerb(token, sipTransferUrl)}
+      ${WebRtcController.generateTransferBxmlVerb(token, callId, sipTransferUrl)}
   </Response>`;
   console.log(`replying with bxml: ${bxml}`);
   res.contentType("application/xml").send(bxml);

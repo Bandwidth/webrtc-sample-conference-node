@@ -54,6 +54,91 @@ app.get("/ping", (req, res) => {
   res.send("OK");
 });
 
+/**
+ * WebRtc participant callback routes.
+ */
+app.post(webrtcCallbackPath, async (req, res) => {
+  const payload = req.body;
+  console.log(`Received WebRTC callback (${Date.now() - payload.timestamp}ms delay)`, payload);
+  res.status(200).send();
+  if (payload.event === "onLeave") {
+    const participantId = payload.participantId;
+
+    // Clear the participant cleanup timeout since we know we don't need it
+    const timeout = participantIdsToCleanupTimeouts.get(participantId);
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    await cleanupParticipant(participantId);
+  }
+});
+
+/**
+ * Sip callback routes.
+ */
+app.post("/callback/incoming", async (req, res) => {
+  console.log(
+      `received callback to /callback/incoming, body: ${JSON.stringify(req.body)}`
+  );
+  console.log(`new incoming call from ${req.body.from}`);
+  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
+  <Response>
+      <Gather maxDigits="${conferenceCodeLength}" gatherUrl="${baseCallbackUrl}/callback/joinConference">
+        <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please enter your ${conferenceCodeLength} digit conference ID.</SpeakSentence>
+      </Gather>
+  </Response>`;
+  console.log(`replying with bxml: ${bxml}`);
+  res.contentType("application/xml").send(bxml);
+});
+
+app.post("/callback/status", (req, res) => {
+  console.log(`received call status update: ${JSON.stringify(req.body)}`);
+  res.status(200).send();
+});
+
+app.post("/callback/joinConference", async (req, res) => {
+  console.log(
+      `received callback to /callback/joinConference, body: ${JSON.stringify(
+          req.body
+      )}`
+  );
+  console.log(req.body.digits);
+  let conferenceCode = req.body.digits;
+  let sessionId = conferenceCodeToIds.get(conferenceCode);
+  let callId = req.body.callId;
+  console.log(
+      `${req.body.from} is attempting to join conference code ${conferenceCode}, session id ${sessionId}, voice call ID ${callId}`
+  );
+
+  if (!sessionId) {
+    console.log(`conferenceCode ${conferenceCode} not found`);
+    res.status(400).send();
+    return;
+  }
+  let slug: string = sessionIdsToSlugs.get(sessionId)!;
+
+  let createParticipantResponse = await createParticipant(slug, "v3", ["AUDIO"]);
+  let participant = createParticipantResponse.participant;
+  let token = createParticipantResponse.deviceToken;
+
+  await addParticipantToSession(participant.id, sessionId)
+
+  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
+  <Response>
+      <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
+      ${WebRtcController.generateTransferBxmlVerb(token, callId, sipTransferUrl)}
+  </Response>`;
+  console.log(`replying with bxml: ${bxml}`);
+  res.contentType("application/xml").send(bxml);
+  console.log("transferring call");
+});
+
+
+/**
+ * Everything below this oidc block will be protected behind okta auth and cannot be hit publicly.
+ * Sip callbacks and public healthchecks should be placed above this line so external services can access them.
+ */
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
 * If OKTA_CLIENT_ID is set, we'll use ExpressOIDC to limit use of this app to 
@@ -365,78 +450,6 @@ app.post("/conferences/:slug/participants", async (req, res) => {
   }
 });
 
-app.post(webrtcCallbackPath, async (req, res) => {
-  const payload = req.body;
-  console.log(`Received WebRTC callback (${Date.now() - payload.timestamp}ms delay)`, payload);
-  res.status(200).send();
-  if (payload.event === "onLeave") {
-    const participantId = payload.participantId;
-
-    // Clear the participant cleanup timeout since we know we don't need it
-    const timeout = participantIdsToCleanupTimeouts.get(participantId);
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    await cleanupParticipant(participantId);
-  }
-});
-
-app.post("/callback/incoming", async (req, res) => {
-  console.log(
-      `received callback to /callback/incoming, body: ${JSON.stringify(req.body)}`
-  );
-  console.log(`new incoming call from ${req.body.from}`);
-  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-  <Response>
-      <Gather maxDigits="${conferenceCodeLength}" gatherUrl="${baseCallbackUrl}/callback/joinConference">
-        <SpeakSentence voice="julie">Welcome to Bandwidth WebRTC Conferencing. Please enter your ${conferenceCodeLength} digit conference ID.</SpeakSentence>
-      </Gather>
-  </Response>`;
-  console.log(`replying with bxml: ${bxml}`);
-  res.contentType("application/xml").send(bxml);
-});
-
-app.post("/callback/status", (req, res) => {
-  console.log(`received call status update: ${JSON.stringify(req.body)}`);
-  res.status(200).send();
-});
-
-app.post("/callback/joinConference", async (req, res) => {
-  console.log(
-      `received callback to /callback/joinConference, body: ${JSON.stringify(
-          req.body
-      )}`
-  );
-  console.log(req.body.digits);
-  let conferenceCode = req.body.digits;
-  let sessionId = conferenceCodeToIds.get(conferenceCode);
-  let callId = req.body.callId;
-  console.log(
-      `${req.body.from} is attempting to join conference code ${conferenceCode}, session id ${sessionId}, voice call ID ${callId}`
-  );
-
-  if (!sessionId) {
-    console.log(`conferenceCode ${conferenceCode} not found`);
-    res.status(400).send();
-    return;
-  }
-  let slug: string = sessionIdsToSlugs.get(sessionId)!;
-
-  let createParticipantResponse = await createParticipant(slug, "v3", ["AUDIO"]);
-  let participant = createParticipantResponse.participant;
-  let token = createParticipantResponse.deviceToken;
-
-  await addParticipantToSession(participant.id, sessionId)
-
-  const bxml = `<?xml version="1.0" encoding="UTF-8" ?>
-  <Response>
-      <SpeakSentence voice="julie">Thank you. Connecting you to your conference now.</SpeakSentence>
-      ${WebRtcController.generateTransferBxmlVerb(token, callId, sipTransferUrl)}
-  </Response>`;
-  console.log(`replying with bxml: ${bxml}`);
-  res.contentType("application/xml").send(bxml);
-  console.log("transferring call");
-});
 
 app.use(express.static(path.join(__dirname, "..", "frontend", "build")));
 

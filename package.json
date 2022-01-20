@@ -19,7 +19,7 @@
   "dependencies": {
     "@bandwidth/webrtc": "^1.2.0",
     "@okta/oidc-middleware": "^4.0.1",
-    "axios": "^0.21.1",
+    "axios": "^0.21.2",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "dotenv": "^8.1.0",

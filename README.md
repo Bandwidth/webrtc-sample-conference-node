@@ -62,6 +62,6 @@ npm start
 ### Start a conference
 Browse to [http://localhost:3000](http://localhost:3000) and start a conference.
 
-(Note: If you want to use a different port number, add a PORT={port number you want to use} to your .env file or otherwise as an environement variable.)
+(Note: If you want to use a different port number, add a PORT={port number you want to use} to your .env file or otherwise as an environment variable.)
 
 You should now be able to dial into your phone number, punch in your conference code, and be connected to your conference.

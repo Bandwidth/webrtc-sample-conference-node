@@ -42,8 +42,8 @@ cp .env.default .env
 Add your Bandwidth account settings to `.env`:
 
 * ACCOUNT\_ID
-* USERNAME
-* PASSWORD
+* BW_USERNAME
+* BW_PASSWORD
 
 * WEBRTC_HTTP_SERVER_URL (Customer API URL, which defaults to `https://api.webrtc.bandwidth.com/v1`. Optionally override if you want to use your personal stack instead, i.e. `https://sife6x5c6l.execute-api.us-east-1.amazonaws.com/v1`)
 * WEBRTC_DEVICE_URL (Device Websocket API URL, which defaults to `wss://device.webrtc.bandwidth.com`. Optionally override if you want to use your personal stack instead, i.e. `wss://t7b04iwatb.execute-api.us-east-1.amazonaws.com`)

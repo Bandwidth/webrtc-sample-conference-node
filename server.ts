@@ -13,8 +13,8 @@ import { ApiController as WebRtcController } from "@bandwidth/webrtc";
 dotenv.config();
 
 const accountId = <string>process.env.ACCOUNT_ID;
-const username = <string>process.env.USERNAME;
-const password = <string>process.env.PASSWORD;
+const username = <string>process.env.BW_USERNAME;
+const password = <string>process.env.BW_PASSWORD;
 
 const voiceNumber = <string>process.env.VOICE_NUMBER;
 

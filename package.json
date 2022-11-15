@@ -18,7 +18,7 @@
   "license": "MIT",
   "dependencies": {
     "@bandwidth/webrtc": "^1.2.0",
-    "@okta/oidc-middleware": "^4.0.1",
+    "@okta/oidc-middleware": "^5.0.0",
     "axios": "^0.21.2",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
@@ -36,7 +36,7 @@
     "@types/express-session": "^1.17.0",
     "@types/node": "12.0.4",
     "@types/ws": "^6.0.3",
-    "nodemon": "^2.0.7",
+    "nodemon": "^2.0.20",
     "ts-node": "^9.1.1",
     "typescript": "^3.8.3"
   }
